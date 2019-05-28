@@ -1,0 +1,20 @@
+/**
+ * File:    Task2_shapeL.cga
+ * Created: 23 May 2019 20:11:47 GMT
+ * Author:  Dell
+ */
+
+version "2018.1"
+
+attr myFrontDepth = 5
+attr myLeftWidth = 11
+
+LotInner -->
+    Lot
+		
+Lot -->
+    offset(-3, inside)
+    shapeL(myFrontDepth,myLeftWidth) { shape : Footprint | remainder: NIL }
+	
+Footprint -->
+    extrude(rand(10,20)) color(1,0,0)

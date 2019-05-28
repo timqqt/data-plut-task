@@ -1,0 +1,48 @@
+/**
+ * File:    Task1.cga
+ * Created: 23 May 2019 20:13:48 GMT
+ * Author:  Fanjie Kong
+ */
+
+version "2018.1"
+
+@Range(3,30)
+attr Height = rand(5,15)
+
+const flatRoofColor = 25%: .2  25%: .5  25%: .7  25%: .9 else: 1
+const slopeRoofColor = 25%: .2  25%: .5  25%: .7  25%: .9 else: 1
+
+@Range("Gable", "Hip", "Flat")
+attr RoofType = randomRoofType
+
+randomRoofType =
+	30%:"Gable"
+	30%:"Hip"
+	else: "Flat"
+	
+@StartRule
+BuildingFootprint -->
+	extrude(Height)  # extrude 5 length unit
+	comp (f){top:Roof|side:Wall}  #f -> face, top -> select top face
+
+Wall -->
+	color(1, 0, 0)
+
+Roof -->
+	case RoofType == "Gable" : GableRoof
+	case RoofType == "Hip" : color(material.color.r*flatRoofColor, material.color.g*flatRoofColor, 0.3+material.color.b*flatRoofColor) roofHip(45, 0.5)
+	case RoofType == "Flat" : FlatRoof # . is a terminator
+	else: PrintRoof
+	
+PrintRoof -->
+	print("My roof is "+RoofType)
+	
+GableRoof -->
+	color(material.color.r*flatRoofColor, 0.3+material.color.g*flatRoofColor, material.color.b*flatRoofColor)
+	roofGable(30, 0.3, 0.3)
+
+FlatRoof -->
+	color(0.3+material.color.r*flatRoofColor, material.color.g*flatRoofColor, material.color.b*flatRoofColor)
+	extrude(0.5)
+	# Extend a parapet roof
+	

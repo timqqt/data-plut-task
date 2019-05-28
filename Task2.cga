@@ -1,0 +1,42 @@
+/**
+ * File:    Task2_shapeL.cga
+ * Created: 23 May 2019 20:11:47 GMT
+ * Author:  Fanjie Kong
+ */
+version "2018.1"
+
+@Range("Gable", "Hip", "Flat")
+attr RoofType = randomRoofType
+
+randomRoofType =
+	30%:"Gable"
+	30%:"Hip"
+	else: "Flat"
+	
+attr myFrontDepth = 5
+attr myRightWidth = 3
+attr myBackDepth = 2
+attr myLeftWidth = 11
+
+
+		
+LotInner -->
+    Lot
+        
+Lot -->
+    offset(-3, inside)
+    shapeO(myFrontDepth,myRightWidth,myBackDepth,myLeftWidth) { shape : Footprint | remainder: NIL }
+
+Footprint -->
+    extrude(rand(10,20)) color(1,0,0)
+    comp (f){top:Roof|side:Wall}  #f -> face, top -> select top face
+    
+Wall -->
+color(1, 0, 0)
+
+Roof -->
+	case RoofType == "Gable" : roofGable(30, 0.3, 0.3)
+	case RoofType == "Hip" : roofHip(45, 0.5)
+	case RoofType == "Flat" : extrude(0.5) # . is a terminator
+	else: PrintRoof
+    

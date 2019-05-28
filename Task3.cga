@@ -1,0 +1,232 @@
+/**
+ * File:    Task3.cga
+ * Created: 23 May 2019 20:13:48 GMT
+ * Author:  Fanjie Kong
+ */
+ 
+
+version "2015.1"
+
+@Hidden(Usage,BuildingHeight,UpperfloorHeight)
+import Facade_Textures:"/ESRI.lib/rules/Facades/Facade_Textures.cga" (BuildingHeight=Eave_Ht,UpperfloorHeight=Floor_Ht*unitScale,Usage=Usage)
+@Hidden(Usage,UpperfloorHeight)
+import Facade_Schematic:"/ESRI.lib/rules/Facades/Facade_Schematic.cga" (UpperfloorHeight=Floor_Ht*unitScale,Usage=Usage)
+
+
+
+###################################
+# Attributes
+#
+
+@Group("Building Settings",1) 
+
+@Order(1) @Range(1,400) @Description("Distance from ground to bottom of roof") 
+attr Eave_Ht 		= _getInitialEaveHeight
+@Order(2) @Range(1,400) @Description("Distance from ground to top of roof") 
+attr Ridge_Ht 		= _getInitialRidgeHeight
+@Order(3) @Range("Random","Agricultural","Assembly","Educational","Industry","Mercantile","Office","Other","Public","Residential","Service","Transport","Unknown","Utility")
+attr Usage 			= _getInitialUsage
+@Order(4) @Range("extrusion","setback top","setback facade","setback base","setback everywhere")
+attr Building_Form 	= _getInitialBuildingForm
+@Order(5) @Range("flat","shed","pyramid","gable","hip","half-hip","gablet","gambrel","mansard","gambrel-flat","mansard-flat","vault","dome","saltbox","butterfly")								# gable & shed combinations
+attr Roof_Form 		= _getInitialRoofForm
+@Order(6) @Range(2.9,5.2) @Description("in Meters")
+attr Floor_Ht 		= 3.7
+@Hidden
+attr Roof_Ht 		= (Ridge_Ht - Eave_Ht) * unitScale
+
+@Group("Visualization Options",2) 
+
+@Order(1) @Range("realistic with facade textures","schematic facades","solid color")
+attr Representation = "realistic with facade textures"
+@Order(2) @Range(0,1)
+attr Transparency 	= 0
+@Order(3) @Color
+attr OverwriteColor = "#ffffff"
+@Order(4) @Color
+attr RoofColor = OverwriteColor
+
+@Group("Rule Options") 
+
+@Order(2) @Range("Meters","Feet") @Description("Units of height attributes") 
+attr Unit = "Meters"
+
+@Order(3) @Range("None","All") @Description("Report information")
+attr Reporting = "None"
+
+
+
+###################################
+# Consts
+#
+
+# user-driven constants
+const unitScale = case Unit=="Feet": 1/0.3048006096012192 else: 1
+
+# for curved roofs such as dome or vault
+const curvedAngleResolution = 10	
+
+
+
+###################################
+# Functions
+#
+
+# for curved roofs such as dome or vault
+
+_getInitialBuildingForm =
+	case Eave_Ht*unitScale < 50 : "extrusion"
+	case Eave_Ht*unitScale > 100: "setback everywhere"
+	else                        : 5%:"extrusion" 15%:"setback top" 15%:"setback facade" 15%:"setback base" else:"setback everywhere"
+
+_getInitialUsage =
+	case Eave_Ht>30: "Random" else: 80%:"Residential" else:"Random"
+
+_getInitialEaveHeight =
+	case geometry.area < 100 : geometry.area/rand(5,10)
+	case geometry.area < 1000: geometry.area/rand(15,25)
+	case geometry.area < 7000: geometry.area/rand(10,25)
+	else                     : geometry.area/rand(70,200)
+
+_getInitialRidgeHeight =
+	case Eave_Ht<30: Eave_Ht+rand(3,6) else: Eave_Ht
+
+_getInitialRoofForm =
+	case Ridge_Ht < Eave_Ht+1: "flat"
+	else: 40%: "hip" 50%: "gable" else: "gambrel"
+	
+
+@Hidden(Level_of_Detail)
+import Parisian_Roof: "ParisianRoofs.cga" 
+	( Type = case Year < 1960: 60%: "gambrel" 30%: "mansard" 7%: "terrace" 2%: "gable" else: "hip" else: "terrace"
+	, Level_of_Detail = case High_LoD:"high" else: "low" )
+
+# imports from Esri Library
+@Hidden
+import Plant: "/ESRI.lib/rules/Plants/Plant_Loader.cga" 
+@Hidden
+import Streets: "/ESRI.lib/rules/Streets/Street_Modern_Simple.cga"
+
+
+
+#####################################################################
+# ATTRIBUTES
+#
+
+@Group("Building Parameters", 1) 
+
+@Order(0)
+@Handle(shape=Mass, type=toggle, reference=radial, align=topleft, extensionLines=off)
+attr High_LoD = false
+
+@Order(1) @Range(1600,2009)
+attr Year = 1500 + AgeHandle //ceil(rand(1599,1990))
+attr AgeHandle = ceil(rand(99,508))
+
+
+
+
+@Hidden
+import Roof_Textures		 : "/ESRI.lib/rules/Roofs/Roof_Textures.cga" () 	# completely controlled in rules below
+
+@Range("Gable", "Hip", "Flat")
+attr RoofType = randomRoofType
+
+
+randomRoofType =
+	50%:"Gable"
+	50%:"Hip"
+	else: "Flat"
+	
+attr myFrontDepth = 20
+attr myRightWidth = 25
+attr myBackDepth = 20
+attr myLeftWidth = 20
+
+
+LotInner -->
+    Lot
+        
+Lot -->
+    offset(-3, inside)
+    shapeO(myFrontDepth,myRightWidth,myBackDepth,myLeftWidth) { shape : Footprint | remainder: GreenGround FewTrees}
+
+Footprint -->
+    extrude(rand(10,20)) 
+    
+    comp (f){top:Roof|side:Facade}  #f -> face, top -> select top face
+
+Facade -->
+	Facade_Textures.Generate
+	
+		    
+
+Roof -->
+	Parisian_Roof.Roof
+	
+	
+	
+	
+###################################################3
+# Ground Cover
+#
+
+const getDirtmapTexture = fileRandom("/ESRI.lib/assets/General/Dirtmap/dirtmap*.jpg")
+const getParkingTexture = fileRandom("/ESRI.lib/assets/Groundcover/Parking/parking*.jpg")
+getGreenSpaceTexture	= imageBestRatio("/ESRI.lib/assets/Groundcover/Green/green*.jpg","yx")
+
+ParkingGround -->
+	alignScopeToGeometry(zUp,0,longest) 
+	setupProjection(0,scope.yx,20,35) projectUV(0)
+	texture(getParkingTexture)
+	setupProjection(2,scope.yx,'1,'1) projectUV(2) 
+	set(material.dirtmap,getDirtmapTexture) 
+
+GreenGround -->
+	alignScopeToGeometry(zUp,0,longest) 
+	setupProjection(0,scope.yx,'1,'1) projectUV(0)
+	texture(getGreenSpaceTexture)
+	setupProjection(2,scope.yx,'1,'1) projectUV(2) 
+	set(material.dirtmap,getDirtmapTexture) 
+
+
+
+###################################################3
+# Trees
+#
+@Hidden
+import Plant_Loader			 : "/ESRI.lib/rules/Plants/Plant_Loader.cga" ()		# completely controlled in rules below
+
+@Group("Trees",3)
+@Order(1) @Range("None","Fan","Model","Analytical") @Description("Do not generate Models for whole city i.e. take care with polygon counts!")
+attr ShowTrees		= "Fan"
+@Order(2) @Range("Random Forest","Tropical","Zone 6 Trees")
+attr Mix 			= "Zone 6 Trees"
+
+getTreeTropical 	= listRandom("Coconut Palm;Date Palm;Palm Lily;Mexican Palmetto;California Palm;Ruffle Palm;Banana Tree;Bamboo;Cabbage Palm Fern;")
+getTreeRandomForest = listRandom("American Chestnut;Red Hickory;Southern Magnolia;Sugar Maple;Northern Red Oak;White Oak;Scots Pine;Douglas Fir;Lodgepole Pine;California Redwood;Giant Sequoia;American Sycamore;Sassafras;California Walnut;")
+getTreeZone06Tree	= listRandom("Sugar Maple;California Incense Cedar;Red Hickory;American Chestnut;Western Juniper;American Sycamore;Northern Red Oak;Basswood;Field Elm;Lawson Cypress;Honey Locust;Yellow Poplar;Black Tupelo;")
+
+getTree =
+	case Mix == "Tropical"			: getTreeTropical
+	case Mix == "Random Forest"		: getTreeRandomForest
+	case Mix == "Zone 6 Trees"		: getTreeZone06Tree
+	else							: ""
+
+FewTrees --> 
+	case ShowTrees != "None":
+		set(Plant_Loader.Representation,ShowTrees)
+		scatter(surface, floor(geometry.area/250), uniform){ Plant_Loader.Generate(getTree) }
+		NIL
+	else: 
+		NIL
+
+Trees --> 
+	case ShowTrees != "None":
+		set(Plant_Loader.Representation,ShowTrees)
+		scatter(surface, floor(geometry.area/300), uniform){ Plant_Loader.Generate(getTree) }
+		scatter(surface, floor(geometry.area/200), uniform){ Plant_Loader.Generate(getTree) }
+		scatter(surface, floor(geometry.area/400), uniform){ Plant_Loader.Generate(getTree) }
+		NIL
+	else: 
+		NIL    

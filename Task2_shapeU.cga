@@ -1,0 +1,22 @@
+/**
+ * File:    Task2_shapeU.cga
+ * Created: 23 May 2019 20:13:48 GMT
+ * Author:  Dell
+ */
+
+version "2018.1"
+
+attr myFrontDepth = 5
+attr myRightWidth = 3
+attr myLeftWidth = 11
+
+
+LotInner -->
+    Lot
+		
+Lot -->
+    offset(-3, inside)
+    shapeU(myFrontDepth,myRightWidth,myLeftWidth) { shape : Footprint | remainder: NIL }
+	
+Footprint -->
+    extrude(rand(10,20)) color(1,0,0)
